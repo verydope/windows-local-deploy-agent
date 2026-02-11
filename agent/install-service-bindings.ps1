@@ -27,8 +27,8 @@ if (-not $Pm2Path) {
 }
 
 $appRoot = [string]$config.appRoot
-$currentDir = Join-Path $appRoot 'current'
-$appMain = Join-Path $currentDir 'dist\src\main.js'
+$appDir = Join-Path $appRoot 'app'
+$appMain = Join-Path $appDir 'dist\src\main.js'
 $logsDir = Join-Path $appRoot 'state\logs'
 $stdoutLog = Join-Path $logsDir 'pm2-out.log'
 $stderrLog = Join-Path $logsDir 'pm2-err.log'
@@ -37,8 +37,8 @@ if (-not (Test-Path -LiteralPath $logsDir)) {
     New-Item -Path $logsDir -ItemType Directory -Force | Out-Null
 }
 
-if (-not (Test-Path -LiteralPath $currentDir)) {
-    New-Item -Path $currentDir -ItemType Directory -Force | Out-Null
+if (-not (Test-Path -LiteralPath $appDir)) {
+    New-Item -Path $appDir -ItemType Directory -Force | Out-Null
 }
 
 $exists = $false
@@ -64,7 +64,7 @@ $startArgs = @(
     'start',
     $appMain,
     '--name', $processName,
-    '--cwd', $currentDir,
+    '--cwd', $appDir,
     '--output', $stdoutLog,
     '--error', $stderrLog,
     '--time'
@@ -76,7 +76,7 @@ if ($config.nodeEnv) {
 
 & $Pm2Path @startArgs | Out-Null
 if ($LASTEXITCODE -ne 0) {
-    throw "Failed to start PM2 process '$processName'. Ensure current\\dist\\src\\main.js exists first."
+    throw "Failed to start PM2 process '$processName'. Ensure app\\dist\\src\\main.js exists first."
 }
 
 & $Pm2Path save | Out-Null

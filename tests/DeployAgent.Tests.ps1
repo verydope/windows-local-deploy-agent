@@ -28,6 +28,14 @@ Describe 'Version comparison' {
         $isNoop | Should -BeTrue
     }
 
+    It 'returns noop when version tag is already deployed' {
+        $state = @{ currentReleaseId = '123'; currentVersion = '2026.02.11+001' }
+        $release = [pscustomobject]@{ id = '124'; tag_name = '2026.02.11+001' }
+
+        $isNoop = ($state.currentReleaseId -eq [string]$release.id) -or ($state.currentVersion -eq $release.tag_name)
+        $isNoop | Should -BeTrue
+    }
+
     It 'returns deploy-needed when release id and version differ' {
         $state = @{ currentReleaseId = '123'; currentVersion = '2026.02.11+001' }
         $release = [pscustomobject]@{ id = '124'; tag_name = 'v2026.02.12+001' }
