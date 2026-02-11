@@ -618,8 +618,8 @@ try {
     $shaPath = Join-Path $runRoot $config.shaAssetName
 
     Write-Log -Level 'INFO' -Message "Downloading release '$targetVersion'."
-    Invoke-GitHubDownload -Uri $zipAsset.browser_download_url -OutFile $zipPath -Token $token
-    Invoke-GitHubDownload -Uri $shaAsset.browser_download_url -OutFile $shaPath -Token $token
+    Invoke-GitHubDownload -Uri $zipAsset.url -OutFile $zipPath -Token $token
+    Invoke-GitHubDownload -Uri $shaAsset.url -OutFile $shaPath -Token $token
 
     $expectedHashLine = (Get-Content -LiteralPath $shaPath -Raw).Trim()
     $expectedHash = ($expectedHashLine -split '\s+')[0].Trim().ToLowerInvariant()
