@@ -195,7 +195,7 @@ function Start-Or-RestartPm2Process {
         [string]$NodeEnv
     )
 
-    $mainScript = Join-Path $CurrentPath 'dist\main.js'
+    $mainScript = Join-Path $CurrentPath 'dist\src\main.js'
     if (-not (Test-Path -LiteralPath $mainScript)) {
         throw "App entrypoint not found: $mainScript"
     }

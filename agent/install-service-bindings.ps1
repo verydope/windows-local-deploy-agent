@@ -28,7 +28,7 @@ if (-not $Pm2Path) {
 
 $appRoot = [string]$config.appRoot
 $currentDir = Join-Path $appRoot 'current'
-$appMain = Join-Path $currentDir 'dist\main.js'
+$appMain = Join-Path $currentDir 'dist\src\main.js'
 $logsDir = Join-Path $appRoot 'state\logs'
 $stdoutLog = Join-Path $logsDir 'pm2-out.log'
 $stderrLog = Join-Path $logsDir 'pm2-err.log'
@@ -76,7 +76,7 @@ if ($config.nodeEnv) {
 
 & $Pm2Path @startArgs | Out-Null
 if ($LASTEXITCODE -ne 0) {
-    throw "Failed to start PM2 process '$processName'. Ensure current\\dist\\main.js exists first."
+    throw "Failed to start PM2 process '$processName'. Ensure current\\dist\\src\\main.js exists first."
 }
 
 & $Pm2Path save | Out-Null
