@@ -107,10 +107,23 @@ function Remove-PathForce {
 function New-Junction {
     param([string]$LinkPath, [string]$TargetPath)
 
+    if (-not (Test-Path -LiteralPath $TargetPath)) {
+        throw "Junction target does not exist: $TargetPath"
+    }
+
     Remove-PathForce -Path $LinkPath
-    $null = & cmd.exe /c "mklink /J \"$LinkPath\" \"$TargetPath\""
+
+    try {
+        New-Item -ItemType Junction -Path $LinkPath -Target $TargetPath -Force | Out-Null
+        return
+    }
+    catch {
+        # Fall back to mklink for older environments with limited Junction support.
+    }
+
+    $mklinkOut = & cmd.exe /c mklink /J "$LinkPath" "$TargetPath" 2>&1
     if ($LASTEXITCODE -ne 0) {
-        throw "Failed to create junction '$LinkPath' -> '$TargetPath'."
+        throw "Failed to create junction '$LinkPath' -> '$TargetPath'. mklink output: $mklinkOut"
     }
 }
 
