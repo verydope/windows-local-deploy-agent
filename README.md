@@ -64,8 +64,8 @@ The script will:
 2. Skip if same version is already deployed
 3. Download zip + sha file
 4. Verify SHA256
-5. Extract into `app` and install production dependencies
-6. Run PM2 as a fresh start (`delete` then `start`) using `app\dist\src\main.js`
+5. Extract into `app` and install dependencies from lockfile (including devDependencies)
+6. Run PM2 as a fresh start (`delete` then `start`) using `entryScript` (or fallback: `app\dist\src\main.js`, `app\dist\main.js`, `app\main.js`)
 
 ## Config fields
 
@@ -80,6 +80,7 @@ The script will:
 - `credentialUser`: default `GITHUB`
 - `githubApiBaseUrl`: default `https://api.github.com`
 - `pm2Path`: default `pm2`
+- `entryScript`: optional app entrypoint, relative to `appRoot\app` (example: `dist\main.js`)
 - `nodeEnv`: optional, commonly `production`
 
 ## Tests

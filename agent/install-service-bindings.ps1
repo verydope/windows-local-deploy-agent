@@ -28,10 +28,51 @@ if (-not $Pm2Path) {
 
 $appRoot = [string]$config.appRoot
 $appDir = Join-Path $appRoot 'app'
-$appMain = Join-Path $appDir 'dist\src\main.js'
 $logsDir = Join-Path $appRoot 'state\logs'
 $stdoutLog = Join-Path $logsDir 'pm2-out.log'
 $stderrLog = Join-Path $logsDir 'pm2-err.log'
+
+function Resolve-AppEntrypoint {
+    param(
+        [Parameter(Mandatory = $true)][string]$AppPath,
+        [Parameter(Mandatory = $false)][string]$ConfiguredEntrypoint
+    )
+
+    $candidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($ConfiguredEntrypoint)) {
+        $normalized = [string]$ConfiguredEntrypoint
+        if ([System.IO.Path]::IsPathRooted($normalized)) {
+            $candidates += $normalized
+        }
+        else {
+            $candidates += (Join-Path $AppPath $normalized)
+        }
+    }
+
+    $candidates += @(
+        (Join-Path $AppPath 'dist\src\main.js'),
+        (Join-Path $AppPath 'dist\main.js'),
+        (Join-Path $AppPath 'main.js')
+    )
+
+    $seen = @{}
+    $uniqueCandidates = @()
+    foreach ($candidate in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+        if (-not $seen.ContainsKey($candidate)) {
+            $seen[$candidate] = $true
+            $uniqueCandidates += $candidate
+        }
+    }
+
+    foreach ($candidate in $uniqueCandidates) {
+        if (Test-Path -LiteralPath $candidate) {
+            return $candidate
+        }
+    }
+
+    throw "App entrypoint not found. Checked: $($uniqueCandidates -join ', '). Set 'entryScript' in config to the built server entrypoint path."
+}
 
 if (-not (Test-Path -LiteralPath $logsDir)) {
     New-Item -Path $logsDir -ItemType Directory -Force | Out-Null
@@ -40,6 +81,8 @@ if (-not (Test-Path -LiteralPath $logsDir)) {
 if (-not (Test-Path -LiteralPath $appDir)) {
     New-Item -Path $appDir -ItemType Directory -Force | Out-Null
 }
+
+$appMain = Resolve-AppEntrypoint -AppPath $appDir -ConfiguredEntrypoint $config.entryScript
 
 $exists = $false
 $jlist = & $Pm2Path jlist 2>$null
@@ -76,7 +119,7 @@ if ($config.nodeEnv) {
 
 & $Pm2Path @startArgs | Out-Null
 if ($LASTEXITCODE -ne 0) {
-    throw "Failed to start PM2 process '$processName'. Ensure app\\dist\\src\\main.js exists first."
+    throw "Failed to start PM2 process '$processName'. Resolved entrypoint: $appMain"
 }
 
 & $Pm2Path save | Out-Null

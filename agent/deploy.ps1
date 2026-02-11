@@ -243,25 +243,25 @@ function Get-Asset {
     return $Release.assets | Where-Object { $_.name -eq $AssetName } | Select-Object -First 1
 }
 
-function Install-ProductionDependencies {
+function Install-Dependencies {
     param([Parameter(Mandatory = $true)][string]$ReleasePath)
 
     Push-Location $ReleasePath
     try {
         if (Test-Path -LiteralPath (Join-Path $ReleasePath 'pnpm-lock.yaml')) {
-            & pnpm install --prod --frozen-lockfile --ignore-scripts
+            & pnpm install
             if ($LASTEXITCODE -ne 0) { throw 'pnpm install failed.' }
             return
         }
 
         if (Test-Path -LiteralPath (Join-Path $ReleasePath 'package-lock.json')) {
-            & npm ci --omit=dev --ignore-scripts
+            & npm ci
             if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
             return
         }
 
         if (Test-Path -LiteralPath (Join-Path $ReleasePath 'yarn.lock')) {
-            & yarn install --production --frozen-lockfile --ignore-scripts
+            & yarn install --frozen-lockfile
             if ($LASTEXITCODE -ne 0) { throw 'yarn install failed.' }
             return
         }
@@ -308,19 +308,59 @@ function Test-Pm2ProcessExists {
     return $false
 }
 
+function Resolve-AppEntrypoint {
+    param(
+        [Parameter(Mandatory = $true)][string]$AppPath,
+        [Parameter(Mandatory = $false)][string]$ConfiguredEntrypoint
+    )
+
+    $candidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($ConfiguredEntrypoint)) {
+        $normalized = [string]$ConfiguredEntrypoint
+        if ([System.IO.Path]::IsPathRooted($normalized)) {
+            $candidates += $normalized
+        }
+        else {
+            $candidates += (Join-Path $AppPath $normalized)
+        }
+    }
+
+    $candidates += @(
+        (Join-Path $AppPath 'dist\src\main.js'),
+        (Join-Path $AppPath 'dist\main.js'),
+        (Join-Path $AppPath 'main.js')
+    )
+
+    $seen = @{}
+    $uniqueCandidates = @()
+    foreach ($candidate in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+        if (-not $seen.ContainsKey($candidate)) {
+            $seen[$candidate] = $true
+            $uniqueCandidates += $candidate
+        }
+    }
+
+    foreach ($candidate in $uniqueCandidates) {
+        if (Test-Path -LiteralPath $candidate) {
+            return $candidate
+        }
+    }
+
+    throw "App entrypoint not found. Checked: $($uniqueCandidates -join ', '). Set 'entryScript' in config to the built server entrypoint path."
+}
+
 function Start-Pm2ProcessFresh {
     param(
         [Parameter(Mandatory = $true)][string]$Pm2Path,
         [Parameter(Mandatory = $true)][string]$ProcessName,
         [Parameter(Mandatory = $true)][string]$AppPath,
         [Parameter(Mandatory = $true)][string]$LogsPath,
+        [Parameter(Mandatory = $false)][string]$EntryScript,
         [Parameter(Mandatory = $false)][string]$NodeEnv
     )
 
-    $mainScript = Join-Path $AppPath 'dist\src\main.js'
-    if (-not (Test-Path -LiteralPath $mainScript)) {
-        throw "App entrypoint not found: $mainScript"
-    }
+    $mainScript = Resolve-AppEntrypoint -AppPath $AppPath -ConfiguredEntrypoint $EntryScript
 
     if (Test-Pm2ProcessExists -Pm2Path $Pm2Path -ProcessName $ProcessName) {
         Invoke-Pm2 -Pm2Path $Pm2Path -Arguments @('delete', $ProcessName) -IgnoreFailure $true | Out-Null
@@ -428,13 +468,13 @@ try {
     }
 
     Expand-Archive -LiteralPath $zipPath -DestinationPath $extractRoot -Force
-    Install-ProductionDependencies -ReleasePath $extractRoot
+    Install-Dependencies -ReleasePath $extractRoot
 
     Remove-PathForce -Path $appPath
     Move-Item -LiteralPath $extractRoot -Destination $appPath
     Remove-PathForce -Path $runRoot
 
-    Start-Pm2ProcessFresh -Pm2Path $config.pm2Path -ProcessName $config.processName -AppPath $appPath -LogsPath $logsRoot -NodeEnv $config.nodeEnv
+    Start-Pm2ProcessFresh -Pm2Path $config.pm2Path -ProcessName $config.processName -AppPath $appPath -LogsPath $logsRoot -EntryScript $config.entryScript -NodeEnv $config.nodeEnv
 
     $state.currentReleaseId = [string]$release.id
     $state.currentVersion = $targetVersion
