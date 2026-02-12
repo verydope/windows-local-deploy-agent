@@ -29,7 +29,7 @@ For a project named `my-api`, app root is `C:\services\my-api`:
 - Node.js in PATH
 - `pm2` installed globally (`npm i -g pm2`)
 - `pm2` available in PATH (or set `pm2Path` in config)
-- One package manager for production install: `pnpm` or `npm` or `yarn`
+- One package manager installed: `pnpm` or `npm` or `yarn`
 - GitHub PAT with read access to repo releases
 
 Store PAT in Credential Manager:

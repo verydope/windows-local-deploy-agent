@@ -248,6 +248,22 @@ function Install-Dependencies {
 
     Push-Location $ReleasePath
     try {
+        $packageJsonPath = Join-Path $ReleasePath 'package.json'
+        if (Test-Path -LiteralPath $packageJsonPath) {
+            try {
+                $packageJson = Get-Content -LiteralPath $packageJsonPath -Raw | ConvertFrom-Json
+                $packageManager = [string]$packageJson.packageManager
+                if ($packageManager -and $packageManager.StartsWith('pnpm')) {
+                    & pnpm install
+                    if ($LASTEXITCODE -ne 0) { throw 'pnpm install failed.' }
+                    return
+                }
+            }
+            catch {
+                # Fall through to lockfile-based detection if package.json cannot be parsed.
+            }
+        }
+
         if (Test-Path -LiteralPath (Join-Path $ReleasePath 'pnpm-lock.yaml')) {
             & pnpm install
             if ($LASTEXITCODE -ne 0) { throw 'pnpm install failed.' }
