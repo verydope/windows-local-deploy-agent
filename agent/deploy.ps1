@@ -484,10 +484,11 @@ try {
     }
 
     Expand-Archive -LiteralPath $zipPath -DestinationPath $extractRoot -Force
-    Install-Dependencies -ReleasePath $extractRoot
 
     Remove-PathForce -Path $appPath
     Move-Item -LiteralPath $extractRoot -Destination $appPath
+    Write-Log -Level 'INFO' -Message "Installing dependencies in '$appPath'."
+    Install-Dependencies -ReleasePath $appPath
     Remove-PathForce -Path $runRoot
 
     Start-Pm2ProcessFresh -Pm2Path $config.pm2Path -ProcessName $config.processName -AppPath $appPath -LogsPath $logsRoot -EntryScript $config.entryScript -NodeEnv $config.nodeEnv

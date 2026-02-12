@@ -64,7 +64,7 @@ The script will:
 2. Skip if same version is already deployed
 3. Download zip + sha file
 4. Verify SHA256
-5. Extract into `app` and install dependencies from lockfile (including devDependencies)
+5. Extract into `app` and then install dependencies from lockfile at the final app path (including devDependencies)
 6. Run PM2 as a fresh start (`delete` then `start`) using `entryScript` (or fallback: `app\dist\src\main.js`, `app\dist\main.js`, `app\main.js`)
 
 ## Config fields
