@@ -8,6 +8,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 $script:LogFile = $null
+$script:LastPm2ExitCode = 0
 
 function ConvertTo-Hashtable {
     param([Parameter(ValueFromPipeline = $true)]$InputObject)
@@ -297,11 +298,40 @@ function Invoke-Pm2 {
     )
 
     $output = & $Pm2Path @Arguments 2>&1
+    $script:LastPm2ExitCode = $LASTEXITCODE
     if ($LASTEXITCODE -ne 0 -and -not $IgnoreFailure) {
         throw "PM2 command failed: $Pm2Path $($Arguments -join ' ')`n$output"
     }
 
     return $output
+}
+
+function Ensure-Pm2StartupRegistration {
+    param(
+        [Parameter(Mandatory = $true)][string]$Pm2Path,
+        [Parameter(Mandatory = $true)][string]$StatePath,
+        [Parameter(Mandatory = $false)][bool]$EnablePm2Startup = $true
+    )
+
+    if (-not $EnablePm2Startup) {
+        Write-Log -Level 'INFO' -Message 'Skipping PM2 startup registration (enablePm2Startup=false).'
+        return
+    }
+
+    $markerPath = Join-Path $StatePath 'pm2-startup-registered.marker'
+    if (Test-Path -LiteralPath $markerPath) {
+        return
+    }
+
+    $startupOutput = Invoke-Pm2 -Pm2Path $Pm2Path -Arguments @('startup') -IgnoreFailure $true
+    if ($script:LastPm2ExitCode -ne 0) {
+        $details = ($startupOutput -join [Environment]::NewLine)
+        Write-Log -Level 'WARN' -Message "PM2 startup registration failed. App deploy completed, but reboot auto-start may not be configured. Output: $details"
+        return
+    }
+
+    Set-Content -LiteralPath $markerPath -Value (Get-Date -Format 'o') -Encoding ascii
+    Write-Log -Level 'INFO' -Message 'PM2 startup registration completed.'
 }
 
 function Test-Pm2ProcessExists {
@@ -372,8 +402,10 @@ function Start-Pm2ProcessFresh {
         [Parameter(Mandatory = $true)][string]$ProcessName,
         [Parameter(Mandatory = $true)][string]$AppPath,
         [Parameter(Mandatory = $true)][string]$LogsPath,
+        [Parameter(Mandatory = $true)][string]$StatePath,
         [Parameter(Mandatory = $false)][string]$EntryScript,
-        [Parameter(Mandatory = $false)][string]$NodeEnv
+        [Parameter(Mandatory = $false)][string]$NodeEnv,
+        [Parameter(Mandatory = $false)][bool]$EnablePm2Startup = $true
     )
 
     $mainScript = Resolve-AppEntrypoint -AppPath $AppPath -ConfiguredEntrypoint $EntryScript
@@ -399,6 +431,7 @@ function Start-Pm2ProcessFresh {
         '--time'
     ) | Out-Null
 
+    Ensure-Pm2StartupRegistration -Pm2Path $Pm2Path -StatePath $StatePath -EnablePm2Startup $EnablePm2Startup
     Invoke-Pm2 -Pm2Path $Pm2Path -Arguments @('save') | Out-Null
 }
 
@@ -420,6 +453,7 @@ try {
     if (-not $config.ContainsKey('credentialUser')) { $config.credentialUser = 'GITHUB' }
     if (-not $config.ContainsKey('githubApiBaseUrl')) { $config.githubApiBaseUrl = 'https://api.github.com' }
     if (-not $config.ContainsKey('pm2Path')) { $config.pm2Path = 'pm2' }
+    if (-not $config.ContainsKey('enablePm2Startup')) { $config.enablePm2Startup = $true }
 
     if (-not $config.ContainsKey('processName') -or [string]::IsNullOrWhiteSpace([string]$config.processName)) {
         if ($config.ContainsKey('serviceName') -and -not [string]::IsNullOrWhiteSpace([string]$config.serviceName)) {
@@ -491,7 +525,7 @@ try {
     Install-Dependencies -ReleasePath $appPath
     Remove-PathForce -Path $runRoot
 
-    Start-Pm2ProcessFresh -Pm2Path $config.pm2Path -ProcessName $config.processName -AppPath $appPath -LogsPath $logsRoot -EntryScript $config.entryScript -NodeEnv $config.nodeEnv
+    Start-Pm2ProcessFresh -Pm2Path $config.pm2Path -ProcessName $config.processName -AppPath $appPath -LogsPath $logsRoot -StatePath $stateRoot -EntryScript $config.entryScript -NodeEnv $config.nodeEnv -EnablePm2Startup ([bool]$config.enablePm2Startup)
 
     $state.currentReleaseId = [string]$release.id
     $state.currentVersion = $targetVersion

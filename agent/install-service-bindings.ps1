@@ -28,6 +28,7 @@ if (-not $Pm2Path) {
 
 $appRoot = [string]$config.appRoot
 $appDir = Join-Path $appRoot 'app'
+$stateDir = Join-Path $appRoot 'state'
 $logsDir = Join-Path $appRoot 'state\logs'
 $stdoutLog = Join-Path $logsDir 'pm2-out.log'
 $stderrLog = Join-Path $logsDir 'pm2-err.log'
@@ -78,6 +79,10 @@ if (-not (Test-Path -LiteralPath $logsDir)) {
     New-Item -Path $logsDir -ItemType Directory -Force | Out-Null
 }
 
+if (-not (Test-Path -LiteralPath $stateDir)) {
+    New-Item -Path $stateDir -ItemType Directory -Force | Out-Null
+}
+
 if (-not (Test-Path -LiteralPath $appDir)) {
     New-Item -Path $appDir -ItemType Directory -Force | Out-Null
 }
@@ -120,6 +125,20 @@ if ($config.nodeEnv) {
 & $Pm2Path @startArgs | Out-Null
 if ($LASTEXITCODE -ne 0) {
     throw "Failed to start PM2 process '$processName'. Resolved entrypoint: $appMain"
+}
+
+$enablePm2Startup = if ($null -ne $config.enablePm2Startup) { [bool]$config.enablePm2Startup } else { $true }
+if ($enablePm2Startup) {
+    $startupMarker = Join-Path $stateDir 'pm2-startup-registered.marker'
+    if (-not (Test-Path -LiteralPath $startupMarker)) {
+        $startupOutput = & $Pm2Path startup 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Set-Content -LiteralPath $startupMarker -Value (Get-Date -Format 'o') -Encoding ascii
+        }
+        else {
+            Write-Warning "PM2 startup registration failed. Reboot auto-start may not be configured. Output: $($startupOutput -join [Environment]::NewLine)"
+        }
+    }
 }
 
 & $Pm2Path save | Out-Null

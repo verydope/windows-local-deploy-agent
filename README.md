@@ -66,6 +66,7 @@ The script will:
 4. Verify SHA256
 5. Extract into `app` and then install dependencies from lockfile at the final app path (including devDependencies)
 6. Run PM2 as a fresh start (`delete` then `start`) using `entryScript` (or fallback: `app\dist\src\main.js`, `app\dist\main.js`, `app\main.js`)
+7. Register PM2 startup once (`pm2 startup`) and persist process list (`pm2 save`) so app can be restored on reboot
 
 ## Config fields
 
@@ -80,6 +81,7 @@ The script will:
 - `credentialUser`: default `GITHUB`
 - `githubApiBaseUrl`: default `https://api.github.com`
 - `pm2Path`: default `pm2`
+- `enablePm2Startup`: default `true`; runs `pm2 startup` once and stores a marker at `appRoot\state\pm2-startup-registered.marker`
 - `entryScript`: optional app entrypoint, relative to `appRoot\app` (example: `dist\main.js`)
 - `nodeEnv`: optional, commonly `production`
 

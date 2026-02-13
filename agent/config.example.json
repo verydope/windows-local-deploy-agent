@@ -11,6 +11,7 @@
   "credentialUser": "GITHUB",
   "githubApiBaseUrl": "https://api.github.com",
   "pm2Path": "pm2",
+  "enablePm2Startup": true,
   "entryScript": "dist\\main.js",
   "nodeEnv": "production"
 }
